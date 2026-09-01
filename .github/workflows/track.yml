@@ -1,0 +1,65 @@
+name: Rastrear voos Itacaré
+
+# Roda periodicamente e a pedido. A cada execução: busca em todos os provedores
+# configurados, ranqueia por custo efetivo e envia alertas (email + WhatsApp)
+# quando algo novo/melhor aparece. O estado é commitado de volta para lembrar o
+# melhor preço entre execuções.
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"   # a cada 4 horas (UTC)
+  workflow_dispatch: {}       # botão "Run workflow" manual
+
+permissions:
+  contents: write             # para commitar o estado atualizado
+
+concurrency:
+  group: flight-tracker
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Rodar rastreador
+        env:
+          # Provedores de preço (configure como Secrets do repositório)
+          AMADEUS_CLIENT_ID: ${{ secrets.AMADEUS_CLIENT_ID }}
+          AMADEUS_CLIENT_SECRET: ${{ secrets.AMADEUS_CLIENT_SECRET }}
+          TEQUILA_API_KEY: ${{ secrets.TEQUILA_API_KEY }}
+          SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
+          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          FX_USD_BRL: ${{ vars.FX_USD_BRL }}
+          FX_EUR_BRL: ${{ vars.FX_EUR_BRL }}
+          # Alertas por email (SMTP)
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          # Alertas por WhatsApp (CallMeBot)
+          CALLMEBOT_PHONE: ${{ secrets.CALLMEBOT_PHONE }}
+          CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
+        run: |
+          export PYTHONPATH=src
+          python -m flight_tracker run --config config.yaml
+
+      - name: Commitar estado atualizado
+        run: |
+          if [ -n "$(git status --porcelain state/)" ]; then
+            git config user.name "flight-tracker-bot"
+            git config user.email "actions@github.com"
+            git add state/
+            git commit -m "chore: atualizar estado do rastreador [skip ci]"
+            git push
+          else
+            echo "Estado sem alterações."
+          fi

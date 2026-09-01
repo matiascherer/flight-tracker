@@ -1,0 +1,79 @@
+# ---------------------------------------------------------------------------
+# Rastreador de voos — Itacaré / Ano Novo 2026-2027
+#
+# Copie para config.yaml e ajuste. Segredos NÃO ficam aqui: os notificadores e
+# provedores leem chaves de variáveis de ambiente (veja .env.example).
+# ---------------------------------------------------------------------------
+
+trip:
+  passengers:
+    primary: 2        # foco principal: casal
+    also: [1]         # também rastreia 1 pax (mostra se aparecer algo ótimo)
+
+  # Janela externa: a viagem inteira precisa caber aqui.
+  window_start: 2026-12-24
+  window_end:   2027-01-07
+
+  # Bloco inegociável do Réveillon: precisamos JÁ estar viajando até core_start
+  # e só voltar em/depois de core_end (30-dez a 03-jan em Itacaré, garantido).
+  core_start: 2026-12-30
+  core_end:   2027-01-03
+
+  # Duração da viagem (noites), inclusive.
+  min_nights: 6
+  max_nights: 14
+
+# Origens em SP, em ordem de preferência (1 = melhor). hours_each_way e
+# ground_cost_roundtrip_brl alimentam o "custo efetivo" (tempo/dinheiro de solo).
+origins:
+  - {code: CGH, name: "São Paulo/Congonhas",  preference: 1, hours_each_way: 0.5, ground_cost_roundtrip_brl: 0}
+  - {code: GRU, name: "São Paulo/Guarulhos",  preference: 2, hours_each_way: 1.0, ground_cost_roundtrip_brl: 60}
+  - {code: VCP, name: "Campinas/Viracopos",   preference: 3, hours_each_way: 1.75, ground_cost_roundtrip_brl: 180}
+
+# Destinos na BA. Ilhéus é pertinho de Itacaré; Salvador é bem mais longe
+# (ferry + ~400km a mais ida/volta + possível diária extra de carro) — por isso
+# o ground_cost e as horas de Salvador são bem maiores.
+destinations:
+  - {code: IOS, name: "Ilhéus/Jorge Amado",   preference: 1, hours_each_way: 1.5, ground_cost_roundtrip_brl: 0}
+  - {code: SSA, name: "Salvador/L.E.Magalhães", preference: 2, hours_each_way: 4.5, ground_cost_roundtrip_brl: 450}
+
+scoring:
+  currency: BRL
+  value_per_hour_brl: 25       # quanto vale 1h de deslocamento (desempate suave)
+  preferred_airlines: [LA]     # LATAM (código IATA LA). Outras cias são aceitas.
+  airline_penalty_brl: 80      # penalidade suave p/ cia não-preferida
+  stop_penalty_brl: 40         # penalidade suave por escala
+
+alerts:
+  target_price_brl: 1600       # dispara alerta quando a passagem fica <= isso
+  min_improvement_brl: 80      # só re-alerta se o melhor cair pelo menos isso
+  top_n: 6                     # quantas opções incluir no relatório
+  alert_on_first_run: true
+
+# Limita o espaço de busca (nº de pares de datas). null = todos (~15-20).
+# Útil para respeitar limites de plano gratuito das APIs.
+max_date_pairs: null
+request_delay_seconds: 0.5     # pausa educada entre chamadas às APIs
+
+state_path: state/best_seen.json
+
+# Provedores. Ative os que você tiver credencial; sem credencial ele é ignorado
+# em silêncio. O 'sample' funciona offline (dados simulados) para testes/demo.
+providers:
+  - {name: sample,                 enabled: false}   # true só p/ testar offline
+  - {name: amadeus,                enabled: true, options: {environment: test, max_offers: 8}}
+  - {name: kiwi_tequila,           enabled: true, options: {limit: 8, max_stopovers: 2}}
+  - {name: serpapi_google_flights, enabled: true}
+  - {name: travelpayouts,          enabled: true, options: {limit: 10}}
+
+# Canais de alerta. Credenciais vêm de env vars (ver .env.example).
+notifiers:
+  - name: email
+    enabled: true
+    options:
+      from: "matias.scherer@capim.com.br"
+      to:   ["matias.scherer@capim.com.br"]
+      # host/port/user/password vêm de SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
+  - name: whatsapp_callmebot
+    enabled: true
+    # phone/apikey vêm de CALLMEBOT_PHONE, CALLMEBOT_APIKEY
