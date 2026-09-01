@@ -1,0 +1,21 @@
+# Segredos (nunca versionar)
+.env
+
+# config.yaml É versionado (não tem segredos, só preferências). Se quiser um
+# override local sem commitar, use config.local.yaml.
+config.local.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Estado local de execução (o CI mantém o seu próprio via commit)
+# Comente a linha abaixo se quiser versionar o estado manualmente.
